@@ -16,6 +16,9 @@ const ensureDataDir = () => {
 // Initialize the database connection
 let db: Database.Database | null = null;
 
+// Track if schema has been initialized
+let schemaInitialized = false;
+
 /**
  * Get a database connection instance
  * @returns A SQLite database connection
@@ -30,6 +33,9 @@ export function getDb(): Database.Database {
     
     // Set busy timeout to avoid SQLITE_BUSY errors
     db.pragma('busy_timeout = 5000');
+    
+    // Ensure schema is initialized
+    ensureSchemaInitialized();
   }
   
   return db;
@@ -90,6 +96,22 @@ export function transaction<T>(callback: (db: Database.Database) => T): T {
   const db = getDb();
   const result = db.transaction(callback)(db);
   return result;
+}
+
+/**
+ * Initialize the database schema if it hasn't been initialized yet
+ */
+export function ensureSchemaInitialized(): void {
+  if (!schemaInitialized) {
+    // Import here to avoid circular dependencies
+    const { initializeSchema, isSchemaInitialized } = require('./schema');
+    
+    if (!isSchemaInitialized()) {
+      initializeSchema();
+    }
+    
+    schemaInitialized = true;
+  }
 }
 
 // Export the Database type for use in other modules

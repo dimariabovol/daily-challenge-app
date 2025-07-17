@@ -6,7 +6,10 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:init": "tsx src/lib/db/init-db.ts",
+    "db:reset": "tsx src/lib/db/init-db.ts --reset",
+    "db:test": "tsx src/lib/db/schema.test.ts"
   },
   "dependencies": {
     "better-sqlite3": "^12.2.0",
