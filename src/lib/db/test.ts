@@ -1,72 +1,113 @@
-import { getDb, closeDb, execute, getOne, getMany, transaction } from './index';
+#!/usr/bin/env node
+
+import { closeDb } from './index';
+import { initializeSchema, resetSchema } from './schema';
+import { createUser, getUserById, getUserByEmail, updateUser, deleteUser } from './users';
+import { 
+  getCategories, 
+  getChallengeTemplates, 
+  createUserChallenge, 
+  getUserChallengeByDate, 
+  completeUserChallenge,
+  getUserChallengeHistory
+} from './challenges';
+import { getUserStats } from './statistics';
 
 /**
- * This file is for testing the database connection and utility functions.
- * It can be run with: npx tsx src/lib/db/test.ts
+ * Test the database utility functions
  */
-
-function testDatabaseConnection() {
+async function testDatabaseUtils() {
   try {
-    console.log('Testing database connection...');
+    console.log('Testing database utility functions...');
     
-    // Get database connection
-    const db = getDb();
-    console.log('Database connection established.');
+    // Reset the schema for testing
+    resetSchema();
     
-    // Create a test table
-    console.log('Creating test table...');
-    execute(`
-      CREATE TABLE IF NOT EXISTS test_table (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
+    // Seed the database with test data
+    const { seedDatabase } = require('./seed-db');
+    seedDatabase();
     
-    // Insert test data
-    console.log('Inserting test data...');
-    const insertResult = execute<{ lastInsertRowid: number }>(
-      'INSERT INTO test_table (name) VALUES (?)',
-      'Test Entry'
-    );
-    console.log(`Inserted row with ID: ${insertResult.lastInsertRowid}`);
+    // Test user functions
+    console.log('\nTesting user functions:');
+    const testUser = createUser('test@example.com', 'password123');
+    console.log('Created user:', testUser);
     
-    // Query the data
-    console.log('Querying test data...');
-    const row = getOne('SELECT * FROM test_table WHERE id = ?', insertResult.lastInsertRowid);
-    console.log('Query result:', row);
+    const retrievedUser = getUserById(testUser.id);
+    console.log('Retrieved user by ID:', retrievedUser);
     
-    // Get all rows
-    console.log('Getting all rows...');
-    const allRows = getMany('SELECT * FROM test_table');
-    console.log(`Found ${allRows.length} rows:`, allRows);
+    const userByEmail = getUserByEmail('test@example.com');
+    console.log('Retrieved user by email:', userByEmail);
     
-    // Test transaction
-    console.log('Testing transaction...');
-    transaction((db) => {
-      const stmt = db.prepare('INSERT INTO test_table (name) VALUES (?)');
-      stmt.run('Transaction Test 1');
-      stmt.run('Transaction Test 2');
-    });
+    const updatedUser = updateUser(testUser.id, { email: 'updated@example.com' });
+    console.log('Updated user:', updatedUser);
     
-    console.log('Transaction completed. Getting updated rows...');
-    const updatedRows = getMany('SELECT * FROM test_table');
-    console.log(`Now have ${updatedRows.length} rows:`, updatedRows);
+    // Test challenge functions
+    console.log('\nTesting challenge functions:');
+    const categories = getCategories();
+    console.log(`Retrieved ${categories.length} categories`);
     
-    // Clean up
-    console.log('Cleaning up...');
-    execute('DROP TABLE test_table');
+    const templates = getChallengeTemplates();
+    console.log(`Retrieved ${templates.length} challenge templates`);
     
-    // Close connection
-    closeDb();
-    console.log('Database connection closed.');
+    // Create a challenge for today
+    const today = new Date().toISOString().split('T')[0];
+    const userChallenge = createUserChallenge(testUser.id, templates[0].id, today);
+    console.log('Created user challenge:', userChallenge);
     
-    console.log('All tests passed successfully!');
+    const todaysChallenge = getUserChallengeByDate(testUser.id, today);
+    console.log('Retrieved today\'s challenge:', todaysChallenge);
+    
+    // Complete the challenge
+    const completedChallenge = completeUserChallenge(userChallenge.id);
+    console.log('Completed challenge:', completedChallenge);
+    
+    // Create challenges for the past few days to test streak calculation
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    
+    const twoDaysAgo = new Date();
+    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+    const twoDaysAgoStr = twoDaysAgo.toISOString().split('T')[0];
+    
+    const threeDaysAgo = new Date();
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+    const threeDaysAgoStr = threeDaysAgo.toISOString().split('T')[0];
+    
+    // Create and complete challenges for the past days
+    const yesterdayChallenge = createUserChallenge(testUser.id, templates[1].id, yesterdayStr);
+    completeUserChallenge(yesterdayChallenge.id);
+    
+    const twoDaysAgoChallenge = createUserChallenge(testUser.id, templates[2].id, twoDaysAgoStr);
+    completeUserChallenge(twoDaysAgoChallenge.id);
+    
+    const threeDaysAgoChallenge = createUserChallenge(testUser.id, templates[3].id, threeDaysAgoStr);
+    // Don't complete this one to test streak calculation
+    
+    // Test challenge history
+    const history = getUserChallengeHistory(testUser.id);
+    console.log(`Retrieved ${history.length} challenge history items`);
+    
+    // Test statistics
+    console.log('\nTesting statistics functions:');
+    const stats = getUserStats(testUser.id);
+    console.log('User stats:', stats);
+    
+    // Test user deletion
+    console.log('\nTesting user deletion:');
+    const deleted = deleteUser(testUser.id);
+    console.log('User deleted:', deleted);
+    
+    console.log('\nAll tests completed successfully!');
   } catch (error) {
-    console.error('Database test failed:', error);
-    process.exit(1);
+    console.error('Error testing database utility functions:', error);
+  } finally {
+    // Close the database connection
+    closeDb();
   }
 }
 
-// Run the test
-testDatabaseConnection();
+// Run the tests if this file is executed directly
+if (require.main === module) {
+  testDatabaseUtils();
+}
