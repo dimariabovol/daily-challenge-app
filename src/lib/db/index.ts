@@ -116,3 +116,6 @@ export function ensureSchemaInitialized(): void {
 
 // Export the Database type for use in other modules
 export type { Database };
+
+// Re-export challenge generator functions
+export { generateDailyChallenge, getTodaysChallengeId, getUpcomingChallenges } from './challenge-generator';
