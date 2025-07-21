@@ -58,7 +58,7 @@ export function verifyToken(token: string): { sub: string; email: string } | nul
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     return decoded as { sub: string; email: string };
-  } catch (_error) {
+  } catch {
     // Error is ignored as we just return null for invalid tokens
     return null;
   }
@@ -77,3 +77,9 @@ export function extractTokenFromHeader(authHeader?: string): string | null {
   
   return authHeader.substring(7); // Remove 'Bearer ' prefix
 }
+
+// Export auth components
+export { AuthProvider } from './AuthContext';
+export { default as ClientAuthProvider } from './ClientAuthProvider';
+export { useAuth } from './AuthContext';
+export { authMiddleware, getUserIdFromRequest } from './middleware';
