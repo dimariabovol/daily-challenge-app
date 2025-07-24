@@ -1,13 +1,40 @@
 'use client';
 
 import { useAuth } from '@/lib/auth';
+import Layout from '@/components/Layout';
+import ChallengeCard, { Challenge } from '@/components/ChallengeCard';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import useSWR from 'swr';
+import { apiService } from '@/lib/api';
+
+// SWR fetcher function for today's challenge
+const fetchTodaysChallenge = async (): Promise<Challenge> => {
+  return apiService.fetchTodaysChallenge();
+};
 
 export default function Home() {
-  const { user, loading, logout } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
+
+  // SWR hook for fetching today's challenge
+  const {
+    data: challenge,
+    error,
+    isLoading: challengeLoading,
+    mutate
+  } = useSWR(
+    user ? 'todays-challenge' : null, // Only fetch if user is authenticated
+    fetchTodaysChallenge,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+      dedupingInterval: 60000, // 1 minute
+      errorRetryCount: 3,
+      errorRetryInterval: 1000,
+    }
+  );
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -15,6 +42,25 @@ export default function Home() {
       router.push('/login');
     }
   }, [user, loading, router]);
+
+  // Handle challenge completion toggle
+  const handleToggleComplete = async (challengeId: string, completed: boolean): Promise<void> => {
+    try {
+      let updatedChallenge: Challenge;
+      
+      if (completed) {
+        updatedChallenge = await apiService.completeChallenge(challengeId);
+      } else {
+        updatedChallenge = await apiService.uncompleteChallenge(challengeId);
+      }
+      
+      // Update the SWR cache with the new data
+      mutate(updatedChallenge, false);
+    } catch (error) {
+      console.error('Failed to toggle challenge completion:', error);
+      throw error; // Re-throw to let the component handle the error
+    }
+  };
 
   // Show loading state while checking authentication
   if (loading) {
@@ -56,42 +102,90 @@ export default function Home() {
 
   // User is authenticated, show the main content
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold">Daily Challenge App</h1>
-          <div className="flex items-center gap-4">
-            <div className="text-sm">
-              Logged in as <span className="font-medium">{user.email}</span>
-            </div>
-            <button
-              onClick={logout}
-              className="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
-            >
-              Log Out
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main content */}
-      <main className="flex-grow flex items-center justify-center p-4">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-4">Welcome to Daily Challenge App</h2>
-          <p className="mb-6">Your daily challenge will appear here soon!</p>
-          <p className="text-sm text-gray-500">
-            This is a placeholder for the daily challenge content that will be implemented in future tasks.
+    <Layout>
+      <div className="max-w-2xl mx-auto">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+            Today&apos;s Challenge
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Ready to take on today&apos;s challenge? Let&apos;s make it count!
           </p>
         </div>
-      </main>
 
-      {/* Footer */}
-      <footer className="bg-white dark:bg-gray-800 shadow-inner">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 text-center text-sm text-gray-500">
-          &copy; {new Date().getFullYear()} Daily Challenge App
-        </div>
-      </footer>
-    </div>
+        {/* Loading state */}
+        {challengeLoading && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-8">
+            <div className="animate-pulse">
+              <div className="flex items-center justify-between mb-4">
+                <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-24"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+              </div>
+              <div className="space-y-3 mb-6">
+                <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6"></div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+                <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Error state */}
+        {error && !challengeLoading && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6">
+            <div className="flex items-center mb-4">
+              <svg className="w-6 h-6 text-red-600 dark:text-red-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <h3 className="text-lg font-medium text-red-800 dark:text-red-200">
+                Failed to load today&apos;s challenge
+              </h3>
+            </div>
+            <p className="text-red-700 dark:text-red-300 mb-4">
+              {error.message || 'Something went wrong while fetching your challenge.'}
+            </p>
+            <button
+              onClick={() => mutate()}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        )}
+
+        {/* Challenge content */}
+        {challenge && !challengeLoading && (
+          <ChallengeCard
+            challenge={challenge}
+            onToggleComplete={handleToggleComplete}
+            loading={false}
+          />
+        )}
+
+        {/* Quick navigation */}
+        {challenge && (
+          <div className="mt-8 text-center">
+            <div className="flex justify-center space-x-4">
+              <Link
+                href="/history"
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-colors"
+              >
+                View History
+              </Link>
+              <Link
+                href="/stats"
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-colors"
+              >
+                View Stats
+              </Link>
+            </div>
+          </div>
+        )}
+      </div>
+    </Layout>
   );
 }
