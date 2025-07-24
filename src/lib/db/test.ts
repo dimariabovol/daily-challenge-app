@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { closeDb } from './index';
-import { initializeSchema, resetSchema } from './schema';
+import { resetSchema } from './schema';
 import { createUser, getUserById, getUserByEmail, updateUser, deleteUser } from './users';
 import { 
   getCategories, 

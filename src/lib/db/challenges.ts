@@ -156,7 +156,7 @@ export function getUserChallengeById(id: string): UserChallenge | undefined {
  * @returns User challenge object or undefined if not found
  */
 export function getUserChallengeByDate(userId: string, date: string): CompleteChallenge | undefined {
-  return getOne<CompleteChallenge>(`
+  const result = getOne<any>(`
     SELECT 
       uc.id, 
       uc.date, 
@@ -174,6 +174,24 @@ export function getUserChallengeByDate(userId: string, date: string): CompleteCh
     JOIN categories c ON ct.category_id = c.id
     WHERE uc.user_id = ? AND uc.date = ?
   `, [userId, date]);
+  
+  if (!result) return undefined;
+  
+  return {
+    id: result.id,
+    date: result.date,
+    title: result.title,
+    description: result.description,
+    completed: result.completed === 1,
+    completed_at: result.completed_at,
+    created_at: result.created_at,
+    category: {
+      id: result.category_id,
+      name: result.category_name,
+      color: result.category_color,
+      icon: result.category_icon
+    }
+  };
 }
 
 /**
@@ -233,7 +251,23 @@ export function getUserChallengeHistory(
   
   params.push(limit, offset);
   
-  return getMany<CompleteChallenge>(query, params);
+  const results = getMany<any>(query, params);
+  
+  return results.map(result => ({
+    id: result.id,
+    date: result.date,
+    title: result.title,
+    description: result.description,
+    completed: result.completed === 1,
+    completed_at: result.completed_at,
+    created_at: result.created_at,
+    category: {
+      id: result.category_id,
+      name: result.category_name,
+      color: result.category_color,
+      icon: result.category_icon
+    }
+  }));
 }
 
 /**

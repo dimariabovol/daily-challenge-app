@@ -1,4 +1,4 @@
-import { getOne, getMany } from './index';
+import { getMany } from './index';
 import { getUserChallengeHistory, countUserChallenges } from './challenges';
 
 /**
@@ -20,41 +20,43 @@ export interface UserStats {
 export function calculateCurrentStreak(userId: string): number {
   // Get the user's challenge history, ordered by date descending
   const challenges = getUserChallengeHistory(userId, 100, 0);
-  
+
   // If no challenges, return 0
   if (challenges.length === 0) {
     return 0;
   }
-  
+
   let streak = 0;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  
-  // Convert today to YYYY-MM-DD format for comparison
-  const todayStr = today.toISOString().split('T')[0];
-  
+
+  // Convert today to YYYY-MM-DD format for comparison (using local timezone)
+  const todayStr = today.getFullYear() + '-' +
+    String(today.getMonth() + 1).padStart(2, '0') + '-' +
+    String(today.getDate()).padStart(2, '0');
+
   // Check if the most recent challenge is from today and is completed
   const mostRecent = challenges[0];
   if (mostRecent.date !== todayStr && mostRecent.completed) {
     // The most recent challenge is from a previous day and is completed
     // Start counting from that day
     let currentDate = new Date(mostRecent.date);
-    
+
     for (const challenge of challenges) {
       const challengeDate = new Date(challenge.date);
       challengeDate.setHours(0, 0, 0, 0);
-      
+
       // Check if this challenge is from the expected date and is completed
       if (
-        challengeDate.getTime() === currentDate.getTime() && 
+        challengeDate.getTime() === currentDate.getTime() &&
         challenge.completed
       ) {
         streak++;
-        
+
         // Move to the previous day
         currentDate.setDate(currentDate.getDate() - 1);
       } else if (
-        challengeDate.getTime() === currentDate.getTime() && 
+        challengeDate.getTime() === currentDate.getTime() &&
         !challenge.completed
       ) {
         // Challenge exists for this day but is not completed, break the streak
@@ -68,27 +70,27 @@ export function calculateCurrentStreak(userId: string): number {
   } else if (mostRecent.date === todayStr && mostRecent.completed) {
     // Today's challenge is completed, start the streak from today
     streak = 1;
-    
+
     let currentDate = new Date(today);
     currentDate.setDate(currentDate.getDate() - 1);
-    
+
     // Skip the first challenge (today's) and check previous days
     for (let i = 1; i < challenges.length; i++) {
       const challenge = challenges[i];
       const challengeDate = new Date(challenge.date);
       challengeDate.setHours(0, 0, 0, 0);
-      
+
       // Check if this challenge is from the expected date and is completed
       if (
-        challengeDate.getTime() === currentDate.getTime() && 
+        challengeDate.getTime() === currentDate.getTime() &&
         challenge.completed
       ) {
         streak++;
-        
+
         // Move to the previous day
         currentDate.setDate(currentDate.getDate() - 1);
       } else if (
-        challengeDate.getTime() === currentDate.getTime() && 
+        challengeDate.getTime() === currentDate.getTime() &&
         !challenge.completed
       ) {
         // Challenge exists for this day but is not completed, break the streak
@@ -100,7 +102,7 @@ export function calculateCurrentStreak(userId: string): number {
       // If the challenge date is greater than current date, continue to the next challenge
     }
   }
-  
+
   return streak;
 }
 
@@ -117,24 +119,24 @@ export function calculateLongestStreak(userId: string): number {
     WHERE user_id = ?
     ORDER BY date ASC
   `, userId);
-  
+
   if (challenges.length === 0) {
     return 0;
   }
-  
+
   let currentStreak = 0;
   let longestStreak = 0;
   let previousDate: Date | null = null;
-  
+
   for (const challenge of challenges) {
     const challengeDate = new Date(challenge.date);
     challengeDate.setHours(0, 0, 0, 0);
-    
+
     // If the challenge is completed
     if (challenge.completed) {
       // If this is the first challenge or there's no gap in dates
       if (
-        previousDate === null || 
+        previousDate === null ||
         (previousDate.getTime() === challengeDate.getTime() - 86400000) // 1 day in milliseconds
       ) {
         currentStreak++;
@@ -142,12 +144,12 @@ export function calculateLongestStreak(userId: string): number {
         // There's a gap, reset the streak
         currentStreak = 1;
       }
-      
+
       // Update the longest streak if the current streak is longer
       if (currentStreak > longestStreak) {
         longestStreak = currentStreak;
       }
-      
+
       // Update the previous date
       previousDate = challengeDate;
     } else {
@@ -156,7 +158,7 @@ export function calculateLongestStreak(userId: string): number {
       previousDate = null;
     }
   }
-  
+
   return longestStreak;
 }
 
@@ -167,13 +169,13 @@ export function calculateLongestStreak(userId: string): number {
  */
 export function calculateCompletionRate(userId: string): number {
   const totalChallenges = countUserChallenges(userId);
-  
+
   if (totalChallenges === 0) {
     return 0;
   }
-  
+
   const completedChallenges = countUserChallenges(userId, true);
-  
+
   return Math.round((completedChallenges / totalChallenges) * 100);
 }
 
@@ -187,10 +189,10 @@ export function getUserStats(userId: string): UserStats {
   const completedChallenges = countUserChallenges(userId, true);
   const currentStreak = calculateCurrentStreak(userId);
   const longestStreak = calculateLongestStreak(userId);
-  const completionRate = totalChallenges > 0 
-    ? Math.round((completedChallenges / totalChallenges) * 100) 
+  const completionRate = totalChallenges > 0
+    ? Math.round((completedChallenges / totalChallenges) * 100)
     : 0;
-  
+
   return {
     totalChallenges,
     completedChallenges,
