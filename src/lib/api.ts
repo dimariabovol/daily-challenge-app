@@ -22,6 +22,38 @@ interface TodaysChallengeResponse {
   };
 }
 
+interface ChallengeHistoryResponse {
+  challenges: Challenge[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    hasMore: boolean;
+  };
+}
+
+interface ChallengeHistoryApiResponse {
+  challenges: TodaysChallengeResponse[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    hasMore: boolean;
+  };
+}
+
+interface UserStats {
+  totalChallenges: number;
+  completedChallenges: number;
+  currentStreak: number;
+  longestStreak: number;
+  completionRate: number;
+}
+
+interface UserStatsResponse {
+  stats: UserStats;
+}
+
 // Convert API response to Challenge interface
 function transformChallengeResponse(response: TodaysChallengeResponse): Challenge {
   return {
@@ -125,6 +157,46 @@ export const apiService = {
     
     const data: TodaysChallengeResponse = await response.json();
     return transformChallengeResponse(data);
+  },
+
+  // Fetch challenge history with pagination and filtering
+  async fetchChallengeHistory(page: number = 1, limit: number = 20, completed?: boolean): Promise<ChallengeHistoryResponse> {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+    
+    if (completed !== undefined) {
+      params.append('completed', completed.toString());
+    }
+    
+    const response = await authenticatedFetch(`/api/challenges/history?${params}`);
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const data: ChallengeHistoryApiResponse = await response.json();
+    
+    // Transform challenges to match the Challenge interface
+    return {
+      challenges: data.challenges.map(transformChallengeResponse),
+      pagination: data.pagination
+    };
+  },
+
+  // Fetch user statistics
+  async fetchUserStats(): Promise<UserStats> {
+    const response = await authenticatedFetch('/api/user/stats');
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const data: UserStatsResponse = await response.json();
+    return data.stats;
   },
 };
 

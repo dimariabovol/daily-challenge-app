@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test:components": "tsx src/components/ChallengeCard.test.ts && tsx src/app/history/page.test.ts",
+    "test:all": "npm run db:test && npm run test:components",
     "db:init": "tsx src/lib/db/init-db.ts",
     "db:reset": "tsx src/lib/db/init-db.ts --reset",
     "db:test": "tsx src/lib/db/schema.test.ts",
